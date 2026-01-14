@@ -42,7 +42,7 @@ var FORMAT_CONFIG = {
     uppercase: false
   },
   TRANSITION: {
-    indentStart: 468, // 6.5 in
+    indentStart: 376, // 13.25 cm desde borde izquierdo
     indentEnd: 0,
     spaceBefore: 6,
     spaceAfter: 6,
@@ -95,8 +95,6 @@ function onOpen() {
       .addItem('Act Break', 'applyActBreak')
       .addItem('Plano (Shot)', 'applyShot'))
     .addSeparator()
-    .addItem('Formateo inteligente [Ctrl+Alt+F]', 'applySmartFormat')
-    .addItem('Formatear documento completo (Fountain)', 'applyFountainFormat')
     .addItem('Renumerar escenas', 'renumberScenes')
     .addSeparator()
     .addSubMenu(ui.createMenu('Plantillas')
@@ -134,10 +132,19 @@ function onInstall() {
  * Abre el panel lateral con controles de formato
  */
 function openSidebar() {
-  var html = HtmlService.createHtmlOutputFromFile('Sidebar')
+  var html = HtmlService.createHtmlOutputFromFile('sidebar')
     .setTitle('Panel de Guion')
     .setWidth(300);
   DocumentApp.getUi().showSidebar(html);
+}
+
+/**
+ * Función auxiliar para incluir archivos HTML parciales
+ * @param {string} filename - Nombre del archivo a incluir (sin extensión)
+ * @return {string} - Contenido del archivo HTML
+ */
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
 /**
@@ -568,11 +575,11 @@ function detectFountainBlockType(text, previousWasCharacter, previousWasParenthe
     return 'SCENE_HEADING';
   }
   
-  // 2. TRANSITION
+  // 2. TRANSITION (incluye español e inglés)
   if (/:$/.test(text) && text.length < 30) {
     return 'TRANSITION';
   }
-  if (/^(CUT TO:|FADE IN:|FADE OUT:|FADE TO:|DISSOLVE TO:|MATCH CUT TO:|JUMP CUT TO:|SMASH CUT TO:)/i.test(text)) {
+  if (/^(CUT TO:|FADE IN:|FADE OUT:|FADE TO:|DISSOLVE TO:|MATCH CUT TO:|JUMP CUT TO:|SMASH CUT TO:|CORTE A:|FUNDIDO A:|FUNDIDO A NEGRO:|DISOLVENCIA A:)/i.test(text)) {
     return 'TRANSITION';
   }
   
@@ -639,8 +646,11 @@ function applyDirectFormat(para, formatType) {
   var leftIndent = Number(config.indentStart) || 0;
   var rightIndent = Number(config.indentEnd) || 0;
   
+  // Aplicar indentStart primero para mover el inicio del párrafo
   para.setIndentStart(leftIndent);
   para.setIndentEnd(rightIndent);
+  // Asegurar que indentFirstLine sea igual a indentStart para que todo el párrafo se mueva
+  para.setIndentFirstLine(leftIndent);
   
   // PASO 3: Aplicar espaciado
   para.setSpacingBefore(Number(config.spaceBefore) || 0);
@@ -653,7 +663,31 @@ function applyDirectFormat(para, formatType) {
   
   // PASO 5: Aplicar mayusculas
   if (config.uppercase) {
-    para.setText(originalText.toUpperCase());
+    var finalText = originalText.toUpperCase();
+    
+    // ESPECIAL: Si es PERSONAJE, verificar CONT'D
+    if (formatType === 'CHARACTER') {
+      var upperText = originalText.toUpperCase().trim();
+      var currentName = upperText.replace(/\s*\([^)]*\).*$/, '').trim();
+      var previousChar = getPreviousCharacterDirect(para);
+      
+      if (previousChar && currentName === previousChar.toUpperCase()) {
+        if (!upperText.includes("CONT'D") && !upperText.includes('CONTD')) {
+          finalText = currentName + " (CONT'D)";
+        } else {
+          finalText = upperText;
+        }
+      } else {
+        finalText = currentName;
+      }
+    }
+    
+    // ESPECIAL: Si es TRANSICIÓN, convertir a inglés
+    if (formatType === 'TRANSITION') {
+      finalText = convertTransitionToEnglish(originalText);
+    }
+    
+    para.setText(finalText);
   }
   
   // PASO 6: Re-aplicar fuente SIN negrita
@@ -669,4 +703,319 @@ function applyDirectFormat(para, formatType) {
   para.setIndentEnd(rightIndent);
   
   return para;
+}
+
+/**
+ * Detecta el personaje anterior (versión para applyDirectFormat)
+ * @param {Paragraph} currentPara - Párrafo actual
+ * @return {string|null} - Nombre del personaje anterior o null
+ */
+function getPreviousCharacterDirect(currentPara) {
+  var doc = DocumentApp.getActiveDocument();
+  var body = doc.getBody();
+  
+  // Obtener el índice del párrafo actual usando getChildIndex
+  var currentIndex = -1;
+  try {
+    currentIndex = body.getChildIndex(currentPara);
+  } catch (e) {
+    return null;
+  }
+  
+  if (currentIndex <= 0) return null;
+  
+  for (var i = currentIndex - 1; i >= 0; i--) {
+    var child = body.getChild(i);
+    
+    // Solo procesar si es un párrafo
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    
+    var para = child.asParagraph();
+    var indent = para.getIndentStart();
+    
+    if (Math.abs(indent - 144) <= 2) {
+      var text = para.getText().trim();
+      var cleanName = text.replace(/\s*\([^)]*\).*$/, '').trim();
+      return cleanName;
+    }
+    
+    if (isSceneHeading(para)) {
+      break;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Convierte transiciones de español a inglés
+ * @param {string} text - Texto de la transición
+ * @return {string} - Transición en inglés
+ */
+function convertTransitionToEnglish(text) {
+  var TRANSITION_MAP = {
+    'CORTE A:': 'CUT TO:',
+    'FUNDIDO A:': 'FADE TO:',
+    'FUNDIDO A NEGRO:': 'FADE OUT:',
+    'FUNDIDO DESDE NEGRO:': 'FADE IN:',
+    'DISOLVENCIA A:': 'DISSOLVE TO:',
+    'FUNDIDO:': 'FADE OUT:',
+    'CORTE:': 'CUT TO:'
+  };
+  
+  var upperText = text.toUpperCase().trim();
+  
+  for (var spanish in TRANSITION_MAP) {
+    if (upperText === spanish || upperText.indexOf(spanish) === 0) {
+      return TRANSITION_MAP[spanish];
+    }
+  }
+  
+  // Si no está en el mapa, devolver en mayúsculas
+  var finalText = upperText;
+  if (!finalText.endsWith(':')) {
+    finalText += ':';
+  }
+  
+  return finalText;
+}
+
+/**
+ * Navegación - Va a la escena anterior
+ */
+function goToPreviousScene() {
+  var doc = DocumentApp.getActiveDocument();
+  var cursor = doc.getCursor();
+  
+  if (!cursor) {
+    DocumentApp.getUi().alert('Coloca el cursor en el documento primero.');
+    return;
+  }
+  
+  var element = cursor.getElement();
+  var body = doc.getBody();
+  var currentIndex = body.getChildIndex(element.getParent());
+  
+  // Buscar hacia atrás
+  for (var i = currentIndex - 1; i >= 0; i--) {
+    var child = body.getChild(i);
+    if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
+      var para = child.asParagraph();
+      var text = para.getText().trim();
+      if (/^(INT\.|EXT\.|INT\.?\/EXT\.)/i.test(text)) {
+        doc.setCursor(doc.newPosition(para.editAsText(), 0));
+        return;
+      }
+    }
+  }
+  
+  DocumentApp.getUi().alert('No se encontró ninguna escena anterior.');
+}
+
+/**
+ * Navegación - Va a la escena siguiente
+ */
+function goToNextScene() {
+  var doc = DocumentApp.getActiveDocument();
+  var cursor = doc.getCursor();
+  
+  if (!cursor) {
+    DocumentApp.getUi().alert('Coloca el cursor en el documento primero.');
+    return;
+  }
+  
+  var element = cursor.getElement();
+  var body = doc.getBody();
+  var currentIndex = body.getChildIndex(element.getParent());
+  var numChildren = body.getNumChildren();
+  
+  // Buscar hacia adelante
+  for (var i = currentIndex + 1; i < numChildren; i++) {
+    var child = body.getChild(i);
+    if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
+      var para = child.asParagraph();
+      var text = para.getText().trim();
+      if (/^(INT\.|EXT\.|INT\.?\/EXT\.)/i.test(text)) {
+        doc.setCursor(doc.newPosition(para.editAsText(), 0));
+        return;
+      }
+    }
+  }
+  
+  DocumentApp.getUi().alert('No se encontró ninguna escena siguiente.');
+}
+
+/**
+ * Muestra diálogo para ir a escena específica
+ */
+function goToSceneDialog() {
+  var ui = DocumentApp.getUi();
+  var response = ui.prompt('Ir a Escena', 'Introduce el número de escena:', ui.ButtonSet.OK_CANCEL);
+  
+  if (response.getSelectedButton() === ui.Button.OK) {
+    var sceneNumber = parseInt(response.getResponseText());
+    if (isNaN(sceneNumber) || sceneNumber < 1) {
+      ui.alert('Por favor, introduce un número válido.');
+      return;
+    }
+    
+    // Usar la función de navegación existente
+    if (typeof navegarAEscenaPorNumero !== 'undefined') {
+      navegarAEscenaPorNumero(sceneNumber);
+    } else {
+      ui.alert('Función no disponible. Usa el índice de escenas.');
+    }
+  }
+}
+
+/**
+ * Muestra índice de escenas
+ */
+function showSceneIndex() {
+  // Delega a la función del sidebar o Navegacion.gs
+  if (typeof mostrarIndiceEscenas !== 'undefined') {
+    mostrarIndiceEscenas();
+  } else {
+    openSidebar();
+  }
+}
+
+/**
+ * Muestra lista de personajes
+ */
+function showCharacterList() {
+  var doc = DocumentApp.getActiveDocument();
+  var body = doc.getBody();
+  var characters = new Set();
+  var numChildren = body.getNumChildren();
+  
+  for (var i = 0; i < numChildren; i++) {
+    var child = body.getChild(i);
+    if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
+      var para = child.asParagraph();
+      var indent = para.getIndentStart();
+      
+      if (Math.abs(indent - 144) <= 2) {
+        var text = para.getText().trim();
+        var name = text.replace(/\s*\([^)]*\).*$/, '').trim();
+        if (name && name.length >= 2) {
+          characters.add(name);
+        }
+      }
+    }
+  }
+  
+  var charArray = Array.from(characters).sort();
+  var message = 'PERSONAJES EN EL GUION\n\n';
+  message += 'Total: ' + charArray.length + '\n\n';
+  message += charArray.join('\n');
+  
+  DocumentApp.getUi().alert(message);
+}
+
+/**
+ * Cuenta diálogos por personaje
+ */
+function countDialoguesByCharacter() {
+  var doc = DocumentApp.getActiveDocument();
+  var body = doc.getBody();
+  var dialogues = {};
+  var numChildren = body.getNumChildren();
+  var currentCharacter = null;
+  
+  for (var i = 0; i < numChildren; i++) {
+    var child = body.getChild(i);
+    if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
+      var para = child.asParagraph();
+      var indent = para.getIndentStart();
+      
+      // Personaje (144pt)
+      if (Math.abs(indent - 144) <= 2) {
+        var text = para.getText().trim();
+        currentCharacter = text.replace(/\s*\([^)]*\).*$/, '').trim();
+        if (!dialogues[currentCharacter]) {
+          dialogues[currentCharacter] = 0;
+        }
+      }
+      // Diálogo (108pt)
+      else if (Math.abs(indent - 108) <= 2 && currentCharacter) {
+        dialogues[currentCharacter]++;
+      }
+    }
+  }
+  
+  // Ordenar por cantidad de diálogos
+  var sorted = Object.keys(dialogues).sort(function(a, b) {
+    return dialogues[b] - dialogues[a];
+  });
+  
+  var message = 'DIÁLOGOS POR PERSONAJE\n\n';
+  sorted.forEach(function(char) {
+    message += char + ': ' + dialogues[char] + '\n';
+  });
+  
+  DocumentApp.getUi().alert(message);
+}
+
+/**
+ * Busca un personaje en el documento
+ */
+function searchCharacter() {
+  var ui = DocumentApp.getUi();
+  var response = ui.prompt('Buscar Personaje', 'Introduce el nombre del personaje:', ui.ButtonSet.OK_CANCEL);
+  
+  if (response.getSelectedButton() === ui.Button.OK) {
+    var searchName = response.getResponseText().toUpperCase().trim();
+    if (!searchName) return;
+    
+    var doc = DocumentApp.getActiveDocument();
+    var body = doc.getBody();
+    var found = [];
+    var numChildren = body.getNumChildren();
+    
+    for (var i = 0; i < numChildren; i++) {
+      var child = body.getChild(i);
+      if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
+        var para = child.asParagraph();
+        var indent = para.getIndentStart();
+        
+        if (Math.abs(indent - 144) <= 2) {
+          var text = para.getText().trim().toUpperCase();
+          if (text.indexOf(searchName) === 0) {
+            found.push({ index: i, text: text });
+          }
+        }
+      }
+    }
+    
+    if (found.length === 0) {
+      ui.alert('No se encontraron apariciones de "' + searchName + '"');
+    } else {
+      var message = 'Se encontraron ' + found.length + ' apariciones de "' + searchName + '"';
+      ui.alert(message);
+      // Ir a la primera aparición
+      var firstPara = body.getChild(found[0].index).asParagraph();
+      doc.setCursor(doc.newPosition(firstPara.editAsText(), 0));
+    }
+  }
+}
+
+/**
+ * Muestra atajos de teclado
+ */
+function showKeyboardShortcuts() {
+  var message = 'ATAJOS DE TECLADO\n\n';
+  message += 'Formatos:\n';
+  message += 'Ctrl+Alt+1 - Encabezado de escena\n';
+  message += 'Ctrl+Alt+2 - Acción\n';
+  message += 'Ctrl+Alt+3 - Personaje\n';
+  message += 'Ctrl+Alt+4 - Diálogo\n';
+  message += 'Ctrl+Alt+5 - Parentético\n';
+  message += 'Ctrl+Alt+6 - Transición\n';
+  message += 'Ctrl+Alt+F - Formateo inteligente\n\n';
+  message += 'Navegación:\n';
+  message += 'Ctrl+Shift+Up - Escena anterior\n';
+  message += 'Ctrl+Shift+Down - Escena siguiente\n';
+  
+  DocumentApp.getUi().alert(message);
 }

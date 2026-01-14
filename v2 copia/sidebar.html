@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <title>Guion Pro</title>
+  <style>
+    /* RESET Y BASE */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #202124;
+      background-color: #f8f9fa;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .container {
+      padding: 16px;
+      max-width: 100%;
+    }
+    
+    /* ENCABEZADO */
+    .header {
+      text-align: center;
+      padding: 24px 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .header h1 {
+      font-size: 28px;
+      color: #ffffff;
+      margin-bottom: 6px;
+      font-weight: 700;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      letter-spacing: 0.5px;
+    }
+    
+    .subtitle {
+      font-size: 13px;
+      color: rgba(255,255,255,0.95);
+      font-weight: 400;
+    }
+    
+    /* SECCIONES */
+    .section {
+      margin-bottom: 24px;
+      padding: 18px;
+      background-color: #ffffff;
+      border-radius: 8px;
+      border: 1px solid #e8eaed;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      transition: all 0.2s ease;
+    }
+    
+    .section:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+    
+    .section:last-child {
+      margin-bottom: 0;
+    }
+    
+    .section h2 {
+      font-size: 12px;
+      font-weight: 700;
+      color: #5f6368;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #1a73e8;
+    }
+    
+    /* BOTONES BASE */
+    .btn {
+      display: inline-block;
+      padding: 12px 18px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+      width: 100%;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+    }
+    
+    .btn:hover {
+      box-shadow: 0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
+      transform: translateY(-2px);
+    }
+    
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3);
+    }
+    
+    /* TIPOS DE BOTONES */
+    .btn-primary {
+      background-color: #1a73e8;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background-color: #1765cc;
+    }
+    
+    .btn-secondary {
+      background-color: #5f6368;
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background-color: #4d5156;
+    }
+    
+    .btn-tertiary {
+      background-color: #34a853;
+      color: white;
+    }
+    
+    .btn-tertiary:hover {
+      background-color: #2d8e47;
+    }
+    
+    .btn-special {
+      background-color: #ea4335;
+      color: white;
+    }
+    
+    .btn-special:hover {
+      background-color: #d33426;
+    }
+    
+    .btn-action {
+      background-color: #fbbc04;
+      color: #202124;
+      font-weight: 600;
+    }
+    
+    .btn-action:hover {
+      background-color: #f9ab00;
+    }
+    
+    .btn-full {
+      width: 100%;
+    }
+    
+    /* GRIDS */
+    .button-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    
+    /* PIE DE PÁGINA */
+    .footer {
+      margin-top: 32px;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 8px;
+      text-align: center;
+      color: #ffffff;
+      font-size: 11px;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .footer p {
+      margin-bottom: 4px;
+      opacity: 0.95;
+    }
+    
+    .footer p:first-child {
+      font-weight: 600;
+      font-size: 13px;
+    }
+    
+    /* RESPONSIVE */
+    @media (max-width: 300px) {
+      .button-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <!-- ENCABEZADO -->
+    <header class="header">
+      <h1>Guion Pro</h1>
+      <p class="subtitle">Sistema Profesional de Escritura de Guiones</p>
+    </header>
+    
+    <!-- SECCIÓN: FORMATO -->
+    <section class="section">
+      <h2>FORMATO</h2>
+      <div class="button-grid">
+        <button class="btn btn-primary" onclick="aplicarFormato('ESCENA')">
+          Encabezado de escena
+        </button>
+        <button class="btn btn-secondary" onclick="aplicarFormato('ACCION')">
+          Acción
+        </button>
+        <button class="btn btn-primary" onclick="aplicarFormato('PERSONAJE')">
+          Personaje
+        </button>
+        <button class="btn btn-secondary" onclick="aplicarFormato('DIALOGO')">
+          Diálogo
+        </button>
+        <button class="btn btn-tertiary" onclick="aplicarFormato('PARENTETICO')">
+          Parentético
+        </button>
+        <button class="btn btn-tertiary" onclick="aplicarFormato('TRANSICION')">
+          Transición
+        </button>
+        <button class="btn btn-special" onclick="aplicarFormato('ACTO')">
+          Act Break
+        </button>
+        <button class="btn btn-special" onclick="aplicarFormato('SHOT')">
+          Plano (Shot)
+        </button>
+      </div>
+    </section>
+    
+    <!-- SECCIÓN: RENUMERAR ESCENAS -->
+    <section class="section">
+      <h2>HERRAMIENTAS</h2>
+      <button class="btn btn-action btn-full" onclick="renumerarEscenas()">
+        Renumerar Escenas
+      </button>
+    </section>
+    
+    <!-- SECCIÓN: PLANTILLAS -->
+    <section class="section">
+      <h2>PLANTILLAS</h2>
+      <button class="btn btn-full btn-secondary" onclick="insertarPortada()">
+        Insertar portada
+      </button>
+      <button class="btn btn-full btn-secondary" onclick="insertarEscenaEstandar()">
+        Insertar escena estándar
+      </button>
+    </section>
+    
+    <!-- SECCIÓN: PERSONAJES -->
+    <section class="section">
+      <h2>PERSONAJES</h2>
+      <button class="btn btn-secondary btn-full" onclick="listaPersonajes()">
+        Lista de personajes
+      </button>
+      <button class="btn btn-secondary btn-full" onclick="contarDialogos()">
+        Contar diálogos por personaje
+      </button>
+      <button class="btn btn-secondary btn-full" onclick="buscarPersonaje()">
+        Buscar personaje
+      </button>
+    </section>
+    
+    <!-- PIE DE PÁGINA -->
+    <footer class="footer">
+      <p>Guion Pro v2.0</p>
+      <p><small>Sistema Profesional de Escritura Cinematográfica</small></p>
+    </footer>
+    
+  </div>
+  
+  <script>
+    // FUNCIONES DE COMUNICACIÓN CON APPS SCRIPT
+    
+    function aplicarFormato(tipoBloque) {
+      const funcionesConversion = {
+        'ESCENA': 'applySceneHeading',
+        'ACCION': 'applyAction',
+        'PERSONAJE': 'applyCharacter',
+        'DIALOGO': 'applyDialogue',
+        'PARENTETICO': 'applyParenthetical',
+        'TRANSICION': 'applyTransition',
+        'ACTO': 'applyActBreak',
+        'SHOT': 'applyShot'
+      };
+      
+      const funcion = funcionesConversion[tipoBloque];
+      
+      if (funcion) {
+        google.script.run
+          .withSuccessHandler(onSuccess)
+          .withFailureHandler(onError)
+          [funcion]();
+      }
+    }
+    
+    function renumerarEscenas() {
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onError)
+        .renumberScenes();
+    }
+    
+    function insertarPortada() {
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onError)
+        .insertTitlePage();
+    }
+    
+    function insertarEscenaEstandar() {
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onError)
+        .insertSceneTemplate();
+    }
+    
+    function listaPersonajes() {
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onError)
+        .showCharacterList();
+    }
+    
+    function contarDialogos() {
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onError)
+        .countDialoguesByCharacter();
+    }
+    
+    function buscarPersonaje() {
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onError)
+        .searchCharacter();
+    }
+    
+    function onSuccess() {
+      console.log('Operación completada con éxito');
+    }
+    
+    function onError(error) {
+      console.error('Error:', error);
+      alert('Error: ' + error.message);
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('Sidebar cargado correctamente');
+    });
+  </script>
+</body>
+</html>

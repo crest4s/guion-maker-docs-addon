@@ -11,14 +11,14 @@
     
     // Mapeo de tipos a funciones de Apps Script
     const funcionesConversion = {
-      'ESCENA': 'convertirAEscena',
-      'ACCION': 'convertirAAccion',
-      'PERSONAJE': 'convertirAPersonaje',
-      'DIALOGO': 'convertirADialogo',
-      'PARENTETICO': 'convertirAParentetico',
-      'TRANSICION': 'convertirATransicion',
-      'NOTA': 'insertarNota',
-      'ACTO': 'insertarActo'
+      'ESCENA': 'applySceneHeading',
+      'ACCION': 'applyAction',
+      'PERSONAJE': 'applyCharacter',
+      'DIALOGO': 'applyDialogue',
+      'PARENTETICO': 'applyParenthetical',
+      'TRANSICION': 'applyTransition',
+      'NOTA': 'applyActBreak',
+      'ACTO': 'applyActBreak'
     };
     
     const funcion = funcionesConversion[tipoBloque];
@@ -29,43 +29,6 @@
         .withFailureHandler(onError)
         [funcion]();
     }
-  }
-  
-  /**
-   * Aplica formateo inteligente.
-   */
-  function formateoInteligente() {
-    mostrarCargando('Analizando y formateando...');
-    google.script.run
-      .withSuccessHandler(onSuccess)
-      .withFailureHandler(onError)
-      .aplicarFormateoInteligente();
-  }
-  
-  /**
-   * Formatea todo el documento usando sintaxis Fountain.
-   */
-  function formatearDocumentoCompleto() {
-    mostrarCargando('Convirtiendo Fountain → Guion...');
-    google.script.run
-      .withSuccessHandler(function() {
-        onSuccess();
-        // Recargar escenas automáticamente
-        setTimeout(cargarEscenas, 1000);
-      })
-      .withFailureHandler(onError)
-      .formatearDocumentoFountain();
-  }
-  
-  /**
-   * Formatea solo la selección usando sintaxis Fountain.
-   */
-  function formatearSeleccion() {
-    mostrarCargando('Formateando selección...');
-    google.script.run
-      .withSuccessHandler(onSuccess)
-      .withFailureHandler(onError)
-      .formatearSeleccionFountain();
   }
   
   /**
@@ -83,20 +46,29 @@
       .renumerarTodasLasEscenas();
   }
   
-  /**
-   * Limpia el formato roto del documento.
-   */
-  function limpiarFormato() {
-    mostrarCargando('Limpiando formato...');
-    google.script.run
-      .withSuccessHandler(onSuccess)
-      .withFailureHandler(onError)
-      .limpiarFormatoRoto();
-  }
-  
   // ============================================================================
   // FUNCIONES DE NAVEGACIÓN
   // ============================================================================
+  
+  /**
+   * Navega a la escena anterior.
+   */
+  function irEscenaAnterior() {
+    google.script.run
+      .withSuccessHandler(onSuccess)
+      .withFailureHandler(onError)
+      .goToPreviousScene();
+  }
+  
+  /**
+   * Navega a la escena siguiente.
+   */
+  function irEscenaSiguiente() {
+    google.script.run
+      .withSuccessHandler(onSuccess)
+      .withFailureHandler(onError)
+      .goToNextScene();
+  }
   
   /**
    * Carga y muestra el índice de escenas.

@@ -109,19 +109,7 @@ function obtenerIndicePararrafoActual() {
  * @return {number} Número de párrafos
  */
 function contarParrafos() {
-  const doc = DocumentApp.getActiveDocument();
-  const body = doc.getBody();
-  
-  let contador = 0;
-  const numChildren = body.getNumChildren();
-  
-  for (let i = 0; i < numChildren; i++) {
-    if (body.getChild(i).getType() === DocumentApp.ElementType.PARAGRAPH) {
-      contador++;
-    }
-  }
-  
-  return contador;
+  return DocumentApp.getActiveDocument().getBody().getParagraphs().length;
 }
 
 // ============================================================================
@@ -133,19 +121,6 @@ function contarParrafos() {
  * Asegura que todos los formatos estén correctos.
  */
 function prepararParaPDF() {
-  const ui = DocumentApp.getUi();
-  
-  const respuesta = ui.alert(
-    'Preparar para PDF',
-    '¿Deseas verificar y corregir el formato antes de exportar a PDF?\n\n' +
-    'Esto aplicará los estilos correctos y renumerará las escenas.',
-    ui.ButtonSet.YES_NO
-  );
-  
-  if (respuesta !== ui.Button.YES) {
-    return;
-  }
-  
   try {
     // Renumerar escenas
     renumerarTodasLasEscenas();
@@ -153,15 +128,11 @@ function prepararParaPDF() {
     // Limpiar formato
     limpiarFormatoRoto();
     
-    ui.alert(
-      'Documento preparado',
-      'El documento está listo para exportar a PDF.\n\n' +
-      'Ve a: Archivo > Descargar > Documento PDF (.pdf)',
-      ui.ButtonSet.OK
-    );
+    // Preparación completada - sin mensaje
     
   } catch (error) {
-    ui.alert('Error al preparar documento: ' + error.message);
+    console.error('Error al preparar documento:', error);
+    DocumentApp.getUi().alert('Error al preparar documento: ' + error.message);
   }
 }
 
@@ -402,4 +373,263 @@ function mostrarDiagnostico() {
     '  Derecho: ' + body.getMarginRight() + 'pt';
   
   DocumentApp.getUi().alert('Diagnóstico', info, DocumentApp.getUi().ButtonSet.OK);
+}
+
+// ============================================================================
+// FUNCIONES PARA SIDEBAR
+// ============================================================================
+
+/**
+ * Detecta el tipo de bloque de un párrafo.
+ * @param {Paragraph} parrafo - Párrafo a analizar
+ * @return {string} Tipo de bloque (ESCENA, ACCION, PERSONAJE, etc.)
+ */
+function detectarTipoBloque(parrafo) {
+  var indent = parrafo.getIndentStart();
+  var texto = parrafo.getText().trim();
+  
+  // ESCENA - indent 0 y empieza con INT/EXT
+  if (Math.abs(indent - 0) <= 2 && /^(INT\.|EXT\.|INT\.\/EXT\.)/i.test(texto)) {
+    return 'ESCENA';
+  }
+  
+  // PERSONAJE - indent 144pt
+  if (Math.abs(indent - 144) <= 2) {
+    return 'PERSONAJE';
+  }
+  
+  // DIALOGO - indent 108pt
+  if (Math.abs(indent - 108) <= 2) {
+    return 'DIALOGO';
+  }
+  
+  // PARENTETICO - indent 126pt
+  if (Math.abs(indent - 126) <= 2) {
+    return 'PARENTETICO';
+  }
+  
+  // TRANSICION - indent 376pt (13.25cm desde borde izquierdo)
+  if (Math.abs(indent - 376) <= 2) {
+    return 'TRANSICION';
+  }
+  
+  // ACT_BREAK - centrado
+  if (parrafo.getAlignment() === DocumentApp.HorizontalAlignment.CENTER) {
+    return 'ACTO';
+  }
+  
+  // ACCION - por defecto
+  return 'ACCION';
+}
+
+/**
+ * Verifica si un párrafo es un encabezado de escena.
+ * @param {Paragraph} parrafo - Párrafo a verificar
+ * @return {boolean} true si es encabezado de escena
+ */
+function isSceneHeading(parrafo) {
+  var texto = parrafo.getText().trim();
+  var indent = parrafo.getIndentStart();
+  return Math.abs(indent - 0) <= 2 && /^(INT\.|EXT\.|INT\.\/EXT\.)/i.test(texto);
+}
+
+/**
+ * Aplica estilo a un párrafo según el tipo.
+ * @param {Paragraph} parrafo - Párrafo a formatear
+ * @param {string} tipo - Tipo de bloque
+ */
+function aplicarEstiloAParrafo(parrafo, tipo) {
+  var formatMap = {
+    'ESCENA': 'SCENE_HEADING',
+    'ACCION': 'ACTION',
+    'PERSONAJE': 'CHARACTER',
+    'DIALOGO': 'DIALOGUE',
+    'PARENTETICO': 'PARENTHETICAL',
+    'TRANSICION': 'TRANSITION',
+    'ACTO': 'ACT_BREAK'
+  };
+  
+  var formatType = formatMap[tipo];
+  if (formatType && FORMAT_CONFIG[formatType]) {
+    applyDirectFormat(parrafo, formatType);
+  }
+}
+
+/**
+ * Obtiene lista de personajes en formato JSON para el sidebar.
+ * @return {string} JSON con array de nombres de personajes
+ */
+function obtenerPersonajesJSON() {
+  try {
+    var personajes = new Set();
+    var paragraphs = DocumentApp.getActiveDocument().getBody().getParagraphs();
+    
+    for (var i = 0; i < paragraphs.length; i++) {
+      var indent = paragraphs[i].getIndentStart();
+      
+      // Detectar personajes por indentación (144pt)
+      if (Math.abs(indent - 144) <= 2) {
+        var texto = paragraphs[i].getText();
+        if (texto) {
+          // Limpiar (CONT'D) y paréntesis
+          var nombre = texto.trim().replace(/\s*\([^)]*\).*$/, '');
+          if (nombre.length >= 2 && nombre.length <= 35) {
+            personajes.add(nombre);
+          }
+        }
+      }
+    }
+    
+    return JSON.stringify(Array.from(personajes).sort());
+    
+  } catch (error) {
+    console.error('Error en obtenerPersonajesJSON:', error);
+    return JSON.stringify([]);
+  }
+}
+
+/**
+ * Inserta nombre de personaje en la posición del cursor.
+ * @param {string} nombre - Nombre del personaje
+ */
+function insertarNombrePersonaje(nombre) {
+  try {
+    var doc = DocumentApp.getActiveDocument();
+    var cursor = doc.getCursor();
+    if (!cursor) return;
+    
+    var element = cursor.getElement();
+    while (element && element.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+      element = element.getParent();
+    }
+    
+    if (element) {
+      var para = element.asParagraph();
+      para.setText(nombre);
+      applyFormat('CHARACTER');
+      doc.setCursor(doc.newPosition(para.getChild(0).asText(), nombre.length));
+    }
+  } catch (error) {
+    console.error('Error en insertarNombrePersonaje:', error);
+    DocumentApp.getUi().alert('Error al insertar personaje: ' + error.message);
+  }
+}
+
+/**
+ * Obtiene lista de localizaciones en formato JSON para el sidebar.
+ * @return {string} JSON con array de localizaciones
+ */
+function obtenerLocalizacionesJSON() {
+  try {
+    var localizaciones = new Set();
+    var paragraphs = DocumentApp.getActiveDocument().getBody().getParagraphs();
+    var regex = /^(INT\.|EXT\.|INT\.\/EXT\.)\s+(.+?)\s+-/i;
+    
+    for (var i = 0; i < paragraphs.length; i++) {
+      var texto = paragraphs[i].getText();
+      if (texto) {
+        var match = texto.match(regex);
+        if (match && match[2]) {
+          var loc = match[2].trim().replace(/\s*\(\d+\)\s*$/, '');
+          if (loc) localizaciones.add(loc);
+        }
+      }
+    }
+    
+    return JSON.stringify(Array.from(localizaciones).sort());
+    
+  } catch (error) {
+    console.error('Error en obtenerLocalizacionesJSON:', error);
+    return JSON.stringify([]);
+  }
+}
+
+/**
+ * Inserta un encabezado de escena con plantilla.
+ * @param {string} localizacion - Nombre de la localización
+ * @param {string} tipo - Tipo de escena (INT. o EXT.)
+ * @param {string} tiempo - Tiempo (DÍA, NOCHE, etc.)
+ */
+function insertarEscenaConLocalizacion(localizacion, tipo, tiempo) {
+  try {
+    var doc = DocumentApp.getActiveDocument();
+    var cursor = doc.getCursor();
+    if (!cursor) return;
+    
+    var element = cursor.getElement();
+    while (element && element.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+      element = element.getParent();
+    }
+    
+    if (element) {
+      var para = element.asParagraph();
+      var textoEscena = tipo + ' ' + localizacion + ' - ' + tiempo;
+      para.setText(textoEscena);
+      applyFormat('SCENE_HEADING');
+      doc.setCursor(doc.newPosition(para.getChild(0).asText(), textoEscena.length));
+    }
+  } catch (error) {
+    console.error('Error en insertarEscenaConLocalizacion:', error);
+    DocumentApp.getUi().alert('Error al insertar escena: ' + error.message);
+  }
+}
+
+/**
+ * Inserta un bloque nuevo formateado en la posición actual.
+ * @param {string} tipo - Tipo de bloque (TRANSICION, etc.)
+ * @param {string} texto - Texto del bloque
+ */
+function insertarBloqueNuevo(tipo, texto) {
+  try {
+    var doc = DocumentApp.getActiveDocument();
+    var cursor = doc.getCursor();
+    if (!cursor) return;
+    
+    var element = cursor.getElement();
+    while (element && element.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+      element = element.getParent();
+    }
+    
+    if (element) {
+      var para = element.asParagraph();
+      para.setText(texto);
+      applyFormat(tipo === 'TRANSICION' ? 'TRANSITION' : tipo);
+      doc.setCursor(doc.newPosition(para.getChild(0).asText(), texto.length));
+    }
+  } catch (error) {
+    console.error('Error en insertarBloqueNuevo:', error);
+    DocumentApp.getUi().alert('Error al insertar bloque: ' + error.message);
+  }
+}
+
+/**
+ * Muestra diálogo con estadísticas del guion.
+ */
+function mostrarEstadisticasGuion() {
+  try {
+    var stats = calcularEstadisticasGuion();
+    
+    var mensaje = 'ESTADÍSTICAS DEL GUION\n\n';
+    mensaje += 'Escenas: ' + stats.escenas + '\n';
+    mensaje += 'Personajes únicos: ' + stats.personajes.size + '\n';
+    mensaje += 'Localizaciones: ' + stats.localizaciones.size + '\n';
+    mensaje += 'Bloques de diálogo: ' + stats.dialogos + '\n';
+    mensaje += 'Palabras en diálogo: ' + stats.palabrasDialogo + '\n';
+    mensaje += 'Palabras en acción: ' + stats.palabrasAccion + '\n';
+    mensaje += 'Transiciones: ' + stats.transiciones + '\n\n';
+    
+    if (stats.personajes.size > 0) {
+      mensaje += 'PERSONAJES:\n';
+      var personajesArray = Array.from(stats.personajes).sort();
+      personajesArray.forEach(function(p) {
+        mensaje += '  • ' + p + '\n';
+      });
+    }
+    
+    DocumentApp.getUi().alert('Estadísticas', mensaje, DocumentApp.getUi().ButtonSet.OK);
+    
+  } catch (error) {
+    console.error('Error en mostrarEstadisticasGuion:', error);
+    DocumentApp.getUi().alert('Error al calcular estadísticas: ' + error.message);
+  }
 }

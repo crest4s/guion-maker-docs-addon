@@ -24,42 +24,58 @@
   /* ENCABEZADO */
   .header {
     text-align: center;
-    padding: 16px 0;
-    border-bottom: 2px solid #1a73e8;
+    padding: 20px 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 8px;
     margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
   }
   
   .header h1 {
-    font-size: 24px;
-    color: #1a73e8;
+    font-size: 26px;
+    color: #ffffff;
     margin-bottom: 4px;
-    font-weight: 600;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    letter-spacing: 0.5px;
   }
   
   .subtitle {
-    font-size: 12px;
-    color: #5f6368;
+    font-size: 13px;
+    color: rgba(255,255,255,0.9);
     font-weight: 400;
   }
   
   /* SECCIONES */
   .section {
     margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid #e8eaed;
+    padding: 16px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e8eaed;
+    transition: all 0.2s ease;
+  }
+  
+  .section:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }
   
   .section:last-child {
-    border-bottom: none;
+    margin-bottom: 0;
   }
   
   .section h2 {
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 700;
     color: #202124;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
     display: flex;
     align-items: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 13px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #1a73e8;
   }
   
   /* BOTONES BASE */
@@ -144,25 +160,24 @@
     background-color: #7627bd;
   }
   
-  .btn-fountain {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  .btn-nav {
+    background-color: #1a73e8;
     color: white;
-    font-weight: 700;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-  }
-  
-  .btn-fountain:hover {
-    background: linear-gradient(135deg, #5568d3 0%, #65408a 100%);
-  }
-  
-  .btn-fountain-light {
-    background: linear-gradient(135deg, #a8c0ff 0%, #c8b6ff 100%);
-    color: #202124;
     font-weight: 600;
+    padding: 8px 12px;
+    font-size: 12px;
   }
   
-  .btn-fountain-light:hover {
-    background: linear-gradient(135deg, #92a9e8 0%, #b29fe8 100%);
+  .btn-nav:hover {
+    background-color: #1765cc;
+  }
+  
+  /* GRID DE NAVEGACIÓN */
+  .nav-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
   }
   
   .btn-small {
@@ -258,15 +273,22 @@
   /* PIE DE PÁGINA */
   .footer {
     margin-top: 32px;
-    padding-top: 16px;
-    border-top: 2px solid #e8eaed;
+    padding: 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 8px;
     text-align: center;
-    color: #5f6368;
+    color: #ffffff;
     font-size: 11px;
   }
   
   .footer p {
     margin-bottom: 4px;
+    opacity: 0.9;
+  }
+  
+  .footer p:first-child {
+    font-weight: 600;
+    font-size: 12px;
   }
   
   /* SCROLLBAR PERSONALIZADA */
