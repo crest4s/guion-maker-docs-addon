@@ -138,36 +138,139 @@ function controllerSearchCharacter() {
 }
 
 /**
- * Abre el panel lateral.
+ * Aplica formato de Personaje con lógica inteligente:
+ * - Si el párrafo está vacío: solicita nombre
+ * - Detecta CONT'D automáticamente
+ * - Crea línea de diálogo vacía después del personaje
+ */
+function controllerApplyCharacter() {
+  try {
+    var doc       = DocumentApp.getActiveDocument();
+    var ui        = DocumentApp.getUi();
+    var paragraph = getParagraphAtCursor();
+
+    if (!paragraph) {
+      showError('Coloca el cursor en un párrafo.');
+      return;
+    }
+
+    var currentText = paragraph.getText().trim();
+
+    if (!currentText) {
+      var response = ui.prompt('Personaje', 'Nombre del personaje:', ui.ButtonSet.OK_CANCEL);
+      if (response.getSelectedButton() !== ui.Button.OK) return;
+      var name = response.getResponseText().trim().toUpperCase();
+      if (!name) return;
+
+      var prevChar = getPreviousCharacterName(paragraph);
+      if (prevChar && prevChar.toUpperCase() === name && !name.includes("CONT'D")) {
+        name = name + " (CONT'D)";
+      }
+      paragraph.setText(name);
+    }
+
+    applyFormatToParagraph(paragraph, 'CHARACTER');
+    createDialogueLineAfter(doc, paragraph);
+
+  } catch (error) {
+    console.error('Error en controllerApplyCharacter:', error);
+    showError('Error al aplicar personaje: ' + error.message);
+  }
+}
+
+/**
+ * Aplica formato de Diálogo con lógica inteligente:
+ * - Si no hay personaje encima, solicita uno primero
+ * - Inserta el personaje y luego aplica formato de diálogo
+ */
+function controllerApplyDialogue() {
+  try {
+    var doc       = DocumentApp.getActiveDocument();
+    var ui        = DocumentApp.getUi();
+    var paragraph = getParagraphAtCursor();
+
+    if (!paragraph) {
+      showError('Coloca el cursor en un párrafo.');
+      return;
+    }
+
+    var body         = doc.getBody();
+    var currentIndex = body.getChildIndex(paragraph);
+    var hasCharAbove = false;
+
+    if (currentIndex > 0) {
+      var prev = body.getChild(currentIndex - 1);
+      if (prev.getType() === DocumentApp.ElementType.PARAGRAPH) {
+        var prevIndent = prev.asParagraph().getIndentStart();
+        hasCharAbove = Math.abs(prevIndent - 144) <= 2 || Math.abs(prevIndent - 126) <= 2;
+      }
+    }
+
+    if (!hasCharAbove) {
+      var response = ui.prompt(
+        'Personaje',
+        'No hay personaje asociado.\nNombre del personaje:',
+        ui.ButtonSet.OK_CANCEL
+      );
+      if (response.getSelectedButton() !== ui.Button.OK) return;
+      var name = response.getResponseText().trim().toUpperCase();
+      if (!name) return;
+
+      var prevChar = getPreviousCharacterName(paragraph);
+      if (prevChar && prevChar.toUpperCase() === name && !name.includes("CONT'D")) {
+        name = name + " (CONT'D)";
+      }
+
+      var charPara = body.insertParagraph(currentIndex, name);
+      applyFormatToParagraph(charPara, 'CHARACTER');
+      // paragraph shifted down by 1
+      paragraph = body.getChild(currentIndex + 1).asParagraph();
+    }
+
+    if (!paragraph.getText().trim()) {
+      paragraph.setText('Dialogo del personaje.');
+    }
+
+    applyFormatToParagraph(paragraph, 'DIALOGUE');
+
+  } catch (error) {
+    console.error('Error en controllerApplyDialogue:', error);
+    showError('Error al aplicar dialogo: ' + error.message);
+  }
+}
+
+/**
+ * Abre el panel lateral del add-on.
  */
 function controllerOpenSidebar() {
   try {
-    // Por ahora, mostrar mensaje informativo
-    // En una implementación completa, aquí se abriría un sidebar HTML
-    showInfo('Panel lateral no implementado aún.\n\nUsa el menú para acceder a todas las funciones.');
+    var html = HtmlService.createHtmlOutputFromFile('Sidebar')
+      .setTitle('Guion Pro')
+      .setWidth(300);
+    DocumentApp.getUi().showSidebar(html);
   } catch (error) {
     console.error('Error en controllerOpenSidebar:', error);
     showError('Error al abrir panel lateral: ' + error.message);
   }
 }
 
+
 /**
  * Muestra los atajos de teclado disponibles.
  */
 function controllerShowKeyboardShortcuts() {
-  var message = 'ATAJOS DE TECLADO\n\n';
-  message += 'FORMATO:\n';
-  message += 'Ctrl+Alt+1 - Encabezado de escena\n';
-  message += 'Ctrl+Alt+2 - Accion\n';
-  message += 'Ctrl+Alt+3 - Personaje\n';
-  message += 'Ctrl+Alt+4 - Dialogo\n';
-  message += 'Ctrl+Alt+5 - Parentetico\n';
-  message += 'Ctrl+Alt+6 - Transicion\n\n';
-  message += 'NOTA: Los atajos deben configurarse\n';
-  message += 'manualmente en Google Docs usando\n';
-  message += 'Herramientas > Macros > Administrar macros';
-  
-  showInfo(message);
+  var msg = 'ATAJOS DE TECLADO\n\n';
+  msg += 'FORMATO:\n';
+  msg += 'Ctrl+Alt+1  Encabezado de escena\n';
+  msg += 'Ctrl+Alt+2  Accion\n';
+  msg += 'Ctrl+Alt+3  Personaje\n';
+  msg += 'Ctrl+Alt+4  Dialogo\n';
+  msg += 'Ctrl+Alt+5  Parentetico\n';
+  msg += 'Ctrl+Alt+6  Transicion\n\n';
+  msg += 'CONFIGURAR:\n';
+  msg += 'Herramientas > Macros > Administrar macros\n';
+  msg += 'Asigna cada atajo a la funcion correspondiente.';
+  showInfo(msg);
 }
 
 // ============================================================================
@@ -205,29 +308,6 @@ function controllerRenumberScenes() {
   }
 }
 
-/**
- * Formatea todo el documento usando sintaxis Fountain.
- */
-function controllerFormatFountain() {
-  try {
-    var ui = DocumentApp.getUi();
-    var response = ui.alert(
-      'Formatear desde Fountain',
-      '¿Deseas formatear todo el documento usando sintaxis Fountain?\n\n' +
-      'Esto aplicará formato automático a todos los párrafos.',
-      ui.ButtonSet.YES_NO
-    );
-    
-    if (response === ui.Button.YES) {
-      var count = formatDocumentFromFountain();
-      showSuccess('Se formatearon ' + count + ' bloques. Escenas renumeradas.');
-    }
-  } catch (error) {
-    console.error('Error en controllerFormatFountain:', error);
-    showError('Error al formatear desde Fountain: ' + error.message);
-  }
-}
-
 // ============================================================================
 // CONTROLADORES DE PERSONAJES
 // ============================================================================
@@ -252,35 +332,6 @@ function controllerShowCharacterList() {
   } catch (error) {
     console.error('Error en controllerShowCharacterList:', error);
     showError('Error al obtener lista de personajes: ' + error.message);
-  }
-}
-
-/**
- * Cuenta y muestra los diálogos por personaje.
- */
-function controllerCountDialogues() {
-  try {
-    var dialogueCounts = countDialoguesByCharacter();
-    
-    if (Object.keys(dialogueCounts).length === 0) {
-      showInfo('No se encontraron diálogos en el documento.');
-      return;
-    }
-    
-    // Ordenar por cantidad de diálogos
-    var sorted = Object.keys(dialogueCounts).sort(function(a, b) {
-      return dialogueCounts[b] - dialogueCounts[a];
-    });
-    
-    var message = '💬 DIÁLOGOS POR PERSONAJE\n\n';
-    sorted.forEach(function(character) {
-      message += character + ': ' + dialogueCounts[character] + '\n';
-    });
-    
-    showInfo(message);
-  } catch (error) {
-    console.error('Error en controllerCountDialogues:', error);
-    showError('Error al contar diálogos: ' + error.message);
   }
 }
 
@@ -330,10 +381,7 @@ function controllerShowHelp() {
   message += '• Diálogo: Texto del personaje\n';
   message += '• Parentético: (indicaciones entre diálogos)\n';
   message += '• Transición: CUT TO:, FADE TO:, etc.\n\n';
-  message += 'FOUNTAIN:\n';
-  message += 'Escribe tu guión en texto plano usando sintaxis Fountain\n';
-  message += 'y usa "Formatear desde Fountain" para aplicar formato.\n\n';
-  message += 'MÁS INFO: fountain.io';
+  message += 'Usa los formatos del menú para componer tu guion.';
   
   showInfo(message);
 }

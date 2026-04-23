@@ -3,16 +3,7 @@
  * Funciones para aplicar formatos de guion cinematografico
  */
 
-var PATTERNS = {
-  sceneHeading: /^(INT\.|EXT\.|INT\.\/EXT\.|I\/E|INT\/EXT|INTERIOR|EXTERIOR)/i,
-  transition: /^(CUT TO:|FADE IN:|FADE OUT:|FADE TO:|DISSOLVE TO:|MATCH CUT TO:|JUMP CUT TO:|SMASH CUT TO:|CORTE A:|FUNDIDO A:|FUNDIDO A NEGRO:|DISOLVENCIA A:)/i,
-  centered: /^>\s*(.+)\s*<$/,
-  character: /^[A-Z][A-Z\s\.\'\'\-]+(\s*\([A-Z\.\']+\))?$/,
-  parenthetical: /^\(.+\)$/,
-  dualDialogue: /\^$/
-};
-
-// Mapeo de transiciones español → inglés
+// Mapeo de transiciones español → inglés (usado también por convertTransitionToEnglish en Code.gs)
 var TRANSITION_MAP = {
   'CORTE A:': 'CUT TO:',
   'FUNDIDO A:': 'FADE TO:',
@@ -71,8 +62,43 @@ function insertarTextoEjemploSiVacio(textoEjemplo) {
  * Aplica formato de encabezado de escena (Scene Heading)
  */
 function applySceneHeading() {
-  // Insertar texto de ejemplo si el párrafo está vacío
-  insertarTextoEjemploSiVacio('INT. LOCALIZACIÓN - DÍA');
+  var doc = DocumentApp.getActiveDocument();
+  var cursor = doc.getCursor();
+  var selection = doc.getSelection();
+  var paragraph = null;
+  
+  if (selection) {
+    var elements = selection.getRangeElements();
+    if (elements.length > 0) {
+      var element = elements[0].getElement();
+      while (element && element.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+        element = element.getParent();
+      }
+      paragraph = element;
+    }
+  } else if (cursor) {
+    var element = cursor.getElement();
+    while (element && element.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+      element = element.getParent();
+    }
+    paragraph = element;
+  }
+  
+  if (paragraph && paragraph.getType() === DocumentApp.ElementType.PARAGRAPH) {
+    var para = paragraph.asParagraph();
+    var textoActual = para.getText().trim();
+    
+    if (!textoActual) {
+      var textoEjemplo = 'INT. LOCALIZACIÓN - DÍA';
+      para.setText(textoEjemplo);
+      applyFormat('SCENE_HEADING');
+      
+      var position = doc.newPosition(para.getChild(0).asText(), textoEjemplo.length);
+      doc.setCursor(position);
+      return;
+    }
+  }
+  
   applyFormat('SCENE_HEADING');
 }
 
@@ -86,12 +112,13 @@ function applyAction() {
 
 /**
  * Aplica formato de personaje (Character) de forma inteligente:
- * - Primera vez (párrafo vacío o sin formato): Inserta "PERSONAJE" y crea línea de diálogo
- * - Segunda vez (ya es CHARACTER formateado): Actualiza CONT'D si aplica y crea nueva línea de diálogo
- * - Siempre detecta automáticamente si debe añadir (CONT'D)
+ * - Si párrafo vacío: Solicita nombre al usuario
+ * - Si ya tiene texto: Detecta automáticamente CONT'D según personaje anterior
+ * - Siempre crea línea de diálogo automáticamente
  */
 function applyCharacter() {
   var doc = DocumentApp.getActiveDocument();
+  var ui = DocumentApp.getUi();
   var cursor = doc.getCursor();
   var selection = doc.getSelection();
   var paragraph = null;
@@ -115,61 +142,72 @@ function applyCharacter() {
   }
   
   if (!paragraph) {
-    DocumentApp.getUi().alert('Coloca el cursor en un párrafo.');
-    return;
+    return; // Sin cursor - operación cancelada
   }
   
   var para = paragraph.asParagraph();
   var currentText = para.getText().trim();
-  var currentIndent = para.getIndentStart();
   
-  // Detectar si ya es un personaje formateado (indent 144pt)
-  var isAlreadyCharacter = Math.abs(currentIndent - 144) <= 2;
-  
-  // CASO 1: Párrafo vacío - insertar "PERSONAJE"
+  // CASO 1: Párrafo vacío - solicitar nombre del personaje
   if (!currentText) {
-    para.setText('PERSONAJE');
-    currentText = 'PERSONAJE';
-  }
-  
-  // CASO 2: Ya es CHARACTER y tiene texto modificado (ej: "JUAN")
-  // El usuario ya modificó el texto y quiere crear el diálogo
-  if (isAlreadyCharacter && currentText !== 'PERSONAJE') {
-    // Detectar si el personaje anterior es el mismo
-    var previousChar = getPreviousCharacter(para);
-    var currentName = currentText.replace(/\s*\([^)]*\).*$/, '').trim().toUpperCase();
+    var response = ui.prompt(
+      'Nombre del Personaje',
+      'Introduce el nombre del personaje (en mayúsculas):',
+      ui.ButtonSet.OK_CANCEL
+    );
     
-    // Si el personaje anterior es el mismo, añadir (CONT'D)
-    if (previousChar && previousChar.toUpperCase() === currentName) {
-      if (!currentText.includes("CONT'D") && !currentText.includes('CONTD')) {
-        para.setText(currentName + " (CONT'D)");
+    if (response.getSelectedButton() !== ui.Button.OK) {
+      return; // Usuario canceló
+    }
+    
+    var nombrePersonaje = response.getResponseText().trim().toUpperCase();
+    
+    if (!nombrePersonaje) {
+      return; // Sin nombre - operación cancelada
+    }
+    
+    // Detectar si debe llevar CONT'D
+    var previousChar = getPreviousCharacter(para);
+    var nombreFinal = nombrePersonaje;
+    
+    if (previousChar && previousChar.toUpperCase() === nombrePersonaje) {
+      if (!nombrePersonaje.includes("CONT'D") && !nombrePersonaje.includes('CONTD')) {
+        nombreFinal = nombrePersonaje + " (CONT'D)";
       }
     }
     
-    // Re-aplicar formato para asegurar consistencia
+    para.setText(nombreFinal);
     applyFormat('CHARACTER');
     
-    // Crear línea de diálogo y mover cursor
+    // Crear línea de diálogo
     crearLineaDialogoDespuesDePersonaje(doc, para);
     return;
   }
   
-  // CASO 3: Primera aplicación de formato o texto sin formato CHARACTER
-  // Detectar si el personaje anterior es el mismo (aunque no esté formateado aún)
-  var previousChar = getPreviousCharacter(para);
+  // CASO 2: Ya tiene texto - detectar si necesita CONT'D
+  var currentIndent = para.getIndentStart();
+  var isAlreadyCharacter = Math.abs(currentIndent - 144) <= 2;
+  
+  // Extraer nombre limpio (sin extensiones)
   var currentName = currentText.replace(/\s*\([^)]*\).*$/, '').trim().toUpperCase();
+  
+  // Detectar personaje anterior
+  var previousChar = getPreviousCharacter(para);
   
   // Si el personaje anterior es el mismo, añadir (CONT'D)
   if (previousChar && previousChar.toUpperCase() === currentName) {
     if (!currentText.includes("CONT'D") && !currentText.includes('CONTD')) {
       para.setText(currentName + " (CONT'D)");
     }
+  } else {
+    // Asegurar que el nombre esté en mayúsculas sin CONT'D
+    para.setText(currentName);
   }
   
   // Aplicar formato de personaje
   applyFormat('CHARACTER');
   
-  // Crear línea de diálogo y mover cursor
+  // Crear línea de diálogo si es necesario
   crearLineaDialogoDespuesDePersonaje(doc, para);
 }
 
@@ -274,9 +312,96 @@ function getPreviousCharacter(currentPara) {
 
 /**
  * Aplica formato de dialogo (Dialogue)
+ * Si no hay un personaje anterior, solicita el nombre del personaje primero.
  */
 function applyDialogue() {
-  insertarTextoEjemploSiVacio('Diálogo del personaje.');
+  var doc = DocumentApp.getActiveDocument();
+  var ui = DocumentApp.getUi();
+  var cursor = doc.getCursor();
+  var selection = doc.getSelection();
+  var paragraph = null;
+  
+  // Obtener el párrafo actual
+  if (selection) {
+    var elements = selection.getRangeElements();
+    if (elements.length > 0) {
+      var element = elements[0].getElement();
+      while (element && element.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+        element = element.getParent();
+      }
+      paragraph = element;
+    }
+  } else if (cursor) {
+    var element = cursor.getElement();
+    while (element && element.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+      element = element.getParent();
+    }
+    paragraph = element;
+  }
+  
+  if (!paragraph) {
+    return; // Sin cursor - operación cancelada
+  }
+  
+  var para = paragraph.asParagraph();
+  var body = doc.getBody();
+  var currentIndex = body.getChildIndex(para);
+  
+  // Verificar si hay un personaje en el párrafo anterior
+  var hasCharacterAbove = false;
+  
+  if (currentIndex > 0) {
+    var prevChild = body.getChild(currentIndex - 1);
+    if (prevChild.getType() === DocumentApp.ElementType.PARAGRAPH) {
+      var prevPara = prevChild.asParagraph();
+      var prevIndent = prevPara.getIndentStart();
+      
+      // Si es personaje (144pt) o parentético (126pt)
+      if (Math.abs(prevIndent - 144) <= 2 || Math.abs(prevIndent - 126) <= 2) {
+        hasCharacterAbove = true;
+      }
+    }
+  }
+  
+  // Si no hay personaje arriba, crear uno primero
+  if (!hasCharacterAbove) {
+    var response = ui.prompt(
+      'Nombre del Personaje',
+      'No hay un personaje asociado a este diálogo.\nIntroduce el nombre del personaje (en mayúsculas):',
+      ui.ButtonSet.OK_CANCEL
+    );
+    
+    if (response.getSelectedButton() !== ui.Button.OK) {
+      return; // Usuario canceló
+    }
+    
+    var nombrePersonaje = response.getResponseText().trim().toUpperCase();
+    
+    if (!nombrePersonaje) {
+      return; // Sin nombre - operación cancelada
+    }
+    
+    // Detectar si debe llevar CONT'D
+    var previousChar = getPreviousCharacter(para);
+    var nombreFinal = nombrePersonaje;
+    
+    if (previousChar && previousChar.toUpperCase() === nombrePersonaje) {
+      if (!nombrePersonaje.includes("CONT'D") && !nombrePersonaje.includes('CONTD')) {
+        nombreFinal = nombrePersonaje + " (CONT'D)";
+      }
+    }
+    
+    // Insertar párrafo de personaje antes del diálogo
+    var charPara = body.insertParagraph(currentIndex, nombreFinal);
+    applyDirectFormat(charPara, 'CHARACTER');
+  }
+  
+  // Aplicar formato de diálogo
+  var textoActual = para.getText().trim();
+  if (!textoActual) {
+    para.setText('Diálogo del personaje.');
+  }
+  
   applyFormat('DIALOGUE');
 }
 
@@ -290,20 +415,132 @@ function applyParenthetical() {  insertarTextoEjemploSiVacio('(acción)');  appl
  * Aplica formato de transicion (Transition)
  */
 function applyTransition() {
-  insertarTextoEjemploSiVacio('CORTE A:');
+  var doc = DocumentApp.getActiveDocument();
+  var cursor = doc.getCursor();
+  var selection = doc.getSelection();
+  var paragraph = null;
+  
+  if (selection) {
+    var elements = selection.getRangeElements();
+    if (elements.length > 0) {
+      var element = elements[0].getElement();
+      while (element && element.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+        element = element.getParent();
+      }
+      paragraph = element;
+    }
+  } else if (cursor) {
+    var element = cursor.getElement();
+    while (element && element.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+      element = element.getParent();
+    }
+    paragraph = element;
+  }
+  
+  if (paragraph && paragraph.getType() === DocumentApp.ElementType.PARAGRAPH) {
+    var para = paragraph.asParagraph();
+    var textoActual = para.getText().trim();
+    
+    if (!textoActual) {
+      var textoEjemplo = 'CORTE A:';
+      para.setText(textoEjemplo);
+      applyFormat('TRANSITION');
+      
+      var position = doc.newPosition(para.getChild(0).asText(), textoEjemplo.length);
+      doc.setCursor(position);
+      return;
+    }
+  }
+  
   applyFormat('TRANSITION');
 }
 
 /**
  * Aplica formato de Act Break
  */
-function applyActBreak() {  insertarTextoEjemploSiVacio('FIN DEL ACTO UNO');  applyFormat('ACT_BREAK');
+function applyActBreak() {
+  var doc = DocumentApp.getActiveDocument();
+  var cursor = doc.getCursor();
+  var selection = doc.getSelection();
+  var paragraph = null;
+  
+  if (selection) {
+    var elements = selection.getRangeElements();
+    if (elements.length > 0) {
+      var element = elements[0].getElement();
+      while (element && element.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+        element = element.getParent();
+      }
+      paragraph = element;
+    }
+  } else if (cursor) {
+    var element = cursor.getElement();
+    while (element && element.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+      element = element.getParent();
+    }
+    paragraph = element;
+  }
+  
+  if (paragraph && paragraph.getType() === DocumentApp.ElementType.PARAGRAPH) {
+    var para = paragraph.asParagraph();
+    var textoActual = para.getText().trim();
+    
+    if (!textoActual) {
+      var textoEjemplo = 'FIN DEL ACTO UNO';
+      para.setText(textoEjemplo);
+      applyFormat('ACT_BREAK');
+      
+      var position = doc.newPosition(para.getChild(0).asText(), textoEjemplo.length);
+      doc.setCursor(position);
+      return;
+    }
+  }
+  
+  applyFormat('ACT_BREAK');
 }
 
 /**
  * Aplica formato de Plano (Shot)
  */
-function applyShot() {  insertarTextoEjemploSiVacio('PLANO GENERAL');  applyFormat('SHOT');
+function applyShot() {
+  var doc = DocumentApp.getActiveDocument();
+  var cursor = doc.getCursor();
+  var selection = doc.getSelection();
+  var paragraph = null;
+  
+  if (selection) {
+    var elements = selection.getRangeElements();
+    if (elements.length > 0) {
+      var element = elements[0].getElement();
+      while (element && element.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+        element = element.getParent();
+      }
+      paragraph = element;
+    }
+  } else if (cursor) {
+    var element = cursor.getElement();
+    while (element && element.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+      element = element.getParent();
+    }
+    paragraph = element;
+  }
+  
+  if (paragraph && paragraph.getType() === DocumentApp.ElementType.PARAGRAPH) {
+    var para = paragraph.asParagraph();
+    var textoActual = para.getText().trim();
+    
+    if (!textoActual) {
+      var textoEjemplo = 'PLANO GENERAL';
+      para.setText(textoEjemplo);
+      applyFormat('SHOT');
+      
+      var position = doc.newPosition(para.getChild(0).asText(), textoEjemplo.length);
+      doc.setCursor(position);
+      return;
+    }
+  }
+  
+  applyFormat('SHOT');
 }
 
 /**
@@ -338,8 +575,7 @@ function applyFormat(formatType) {
   }
   
   if (!paragraph || paragraph.getType() !== DocumentApp.ElementType.PARAGRAPH) {
-    DocumentApp.getUi().alert('Coloca el cursor en un parrafo para aplicar formato.');
-    return;
+    return; // Sin párrafo - operación cancelada
   }
   
   var config = FORMAT_CONFIG[formatType];
@@ -451,15 +687,15 @@ function renumberScenes() {
   var body = doc.getBody();
   var paragraphs = body.getParagraphs();
   var sceneNumber = 1;
-  
+
   for (var i = 0; i < paragraphs.length; i++) {
     var para = paragraphs[i];
     var text = para.getText().trim();
-    
+
     if (isSceneHeading(para)) {
       text = removeSceneNumber(text);
-      var numberedText = text + ' (' + sceneNumber + ')';
-      para.setText(numberedText.toUpperCase());
+      var numberedText = sceneNumber + '. ' + text.toUpperCase();
+      para.setText(numberedText);
       
       var config = FORMAT_CONFIG.SCENE_HEADING;
       para.setIndentStart(config.indentStart);
@@ -475,5 +711,15 @@ function renumberScenes() {
     }
   }
   
-  DocumentApp.getUi().alert('Escenas renumeradas: ' + (sceneNumber - 1) + ' escenas encontradas.');
+  // Escenas renumeradas - sin mensaje
+}
+
+/**
+ * Quita la numeración de un encabezado de escena.
+ * Alias para compatibilidad: removeSceneNumber
+ * @param {string} text - Texto de escena
+ * @return {string} Texto sin numeración
+ */
+function removeSceneNumber(text) {
+  return text.replace(/^\d+\.\s*/, '').replace(/\s*\(\d+\)\s*$/, '').trim();
 }

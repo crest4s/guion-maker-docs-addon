@@ -238,14 +238,14 @@
       </div>
     </section>
     
-    <!-- SECCIÓN: RENUMERAR ESCENAS -->
+    <!-- SECCIÓN: HERRAMIENTAS -->
     <section class="section">
       <h2>HERRAMIENTAS</h2>
       <button class="btn btn-action btn-full" onclick="renumerarEscenas()">
-        Renumerar Escenas
+        Renumerar escenas
       </button>
     </section>
-    
+
     <!-- SECCIÓN: PLANTILLAS -->
     <section class="section">
       <h2>PLANTILLAS</h2>
@@ -262,9 +262,6 @@
       <h2>PERSONAJES</h2>
       <button class="btn btn-secondary btn-full" onclick="listaPersonajes()">
         Lista de personajes
-      </button>
-      <button class="btn btn-secondary btn-full" onclick="contarDialogos()">
-        Contar diálogos por personaje
       </button>
       <button class="btn btn-secondary btn-full" onclick="buscarPersonaje()">
         Buscar personaje
@@ -332,13 +329,6 @@
         .showCharacterList();
     }
     
-    function contarDialogos() {
-      google.script.run
-        .withSuccessHandler(onSuccess)
-        .withFailureHandler(onError)
-        .countDialoguesByCharacter();
-    }
-    
     function buscarPersonaje() {
       google.script.run
         .withSuccessHandler(onSuccess)
@@ -346,10 +336,16 @@
         .searchCharacter();
     }
     
-    function onSuccess() {
-      console.log('Operación completada con éxito');
+    // Llamada genérica para funciones sin argumentos
+    function call(fnName) {
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onError)
+        [fnName]();
     }
-    
+
+    function onSuccess() {}
+
     function onError(error) {
       console.error('Error:', error);
       alert('Error: ' + error.message);

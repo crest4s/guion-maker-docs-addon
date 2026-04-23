@@ -77,8 +77,8 @@ var FONT = {
 };
 
 var PAGE_CONFIG = {
-  width: 612,        // 8.5 in
-  height: 792,       // 11 in
+  width: 595,        // A4 210mm
+  height: 842,       // A4 297mm
   marginTop: 72,     // 1.0 in
   marginBottom: 72,  // 1.0 in
   marginLeft: 108,   // 1.5 in
@@ -399,11 +399,55 @@ function setupDocumentStandards() {
     // Establecer tamaño de página
     body.setPageWidth(PAGE_CONFIG.width);
     body.setPageHeight(PAGE_CONFIG.height);
-    
+
+    // Re-aplicar indentaciones tras el cambio de márgenes
+    recalculateAllIndentations();
+
   } catch (error) {
     console.error('Error en setupDocumentStandards:', error);
     throw error;
   }
+}
+
+/**
+ * Re-aplica indentaciones correctas tras un cambio de márgenes.
+ * En Google Docs los márgenes se suman a las indentaciones, causando desalineación.
+ */
+function recalculateAllIndentations() {
+  var paragraphs = DocumentApp.getActiveDocument().getBody().getParagraphs();
+
+  for (var i = 0; i < paragraphs.length; i++) {
+    var para       = paragraphs[i];
+    var formatType = detectFormatTypeByIndentation(para.getIndentStart(), para.getIndentEnd());
+
+    if (formatType) {
+      var config = FORMAT_CONFIG[formatType];
+      var left   = Number(config.indentStart) || 0;
+      var right  = Number(config.indentEnd)   || 0;
+      para.setIndentStart(0);
+      para.setIndentEnd(0);
+      para.setIndentFirstLine(0);
+      para.setIndentStart(left);
+      para.setIndentEnd(right);
+      para.setIndentFirstLine(left);
+    }
+  }
+}
+
+/**
+ * Detecta el tipo de formato por valores de indentación.
+ *
+ * @param {number} indentStart - Indentación izquierda en puntos
+ * @param {number} indentEnd   - Indentación derecha en puntos
+ * @return {string|null} Tipo de formato o null si no se reconoce
+ */
+function detectFormatTypeByIndentation(indentStart, indentEnd) {
+  var t = 2;
+  if (Math.abs(indentStart - 144) <= t && Math.abs(indentEnd)      <= t) return 'CHARACTER';
+  if (Math.abs(indentStart - 108) <= t && Math.abs(indentEnd - 72) <= t) return 'DIALOGUE';
+  if (Math.abs(indentStart - 126) <= t && Math.abs(indentEnd - 90) <= t) return 'PARENTHETICAL';
+  if (Math.abs(indentStart - 376) <= t && Math.abs(indentEnd)      <= t) return 'TRANSITION';
+  return null;
 }
 
 // ============================================================================
@@ -434,10 +478,10 @@ function renumberAllScenes() {
         var text = paragraph.getText();
         
         // Quitar numeración anterior
-        text = text.replace(/\s*\(\d+\)\s*$/, '').trim();
-        
+        text = text.replace(/^\d+\.\s*/, '').replace(/\s*\(\d+\)\s*$/, '').trim();
+
         // Añadir nueva numeración
-        var numberedText = text + ' (' + sceneNumber + ')';
+        var numberedText = sceneNumber + '. ' + text;
         paragraph.setText(numberedText);
         
         // Reaplicar estilo
@@ -453,109 +497,6 @@ function renumberAllScenes() {
     console.error('Error en renumberAllScenes:', error);
     throw error;
   }
-}
-
-// ============================================================================
-// FOUNTAIN PARSER
-// ============================================================================
-
-/**
- * Formatea todo el documento usando sintaxis Fountain.
- * 
- * @return {number} Cantidad de bloques formateados
- */
-function formatDocumentFromFountain() {
-  try {
-    var doc = DocumentApp.getActiveDocument();
-    var body = doc.getBody();
-    var numChildren = body.getNumChildren();
-    var count = 0;
-    var previousType = null;
-    
-    for (var i = 0; i < numChildren; i++) {
-      var child = body.getChild(i);
-      
-      if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
-      
-      var paragraph = child.asParagraph();
-      var text = paragraph.getText().trim();
-      
-      if (!text) {
-        previousType = null;
-        continue;
-      }
-      
-      var detectedType = detectFountainBlockType(text, previousType);
-      
-      if (detectedType) {
-        applyFormatToParagraph(paragraph, detectedType);
-        previousType = detectedType;
-        count++;
-      } else {
-        previousType = null;
-      }
-    }
-    
-    // Renumerar escenas automáticamente
-    renumberAllScenes();
-    
-    return count;
-  } catch (error) {
-    console.error('Error en formatDocumentFromFountain:', error);
-    throw error;
-  }
-}
-
-/**
- * Detecta el tipo de bloque según reglas Fountain.
- * 
- * @param {string} text - Texto del párrafo
- * @param {string} previousType - Tipo del bloque anterior
- * @return {string|null} Tipo de formato detectado
- */
-function detectFountainBlockType(text, previousType) {
-  if (!text) return null;
-  
-  // 1. SCENE HEADING
-  if (/^(INT\.|EXT\.|INT\.\/EXT\.|I\/E|INT\/EXT)/i.test(text)) {
-    return 'SCENE_HEADING';
-  }
-  
-  // 2. TRANSITION (termina en ':' o palabras clave)
-  if (/:$/.test(text) && text.length < 30) {
-    return 'TRANSITION';
-  }
-  if (/^(CUT TO:|FADE IN:|FADE OUT:|FADE TO:|DISSOLVE TO:|MATCH CUT TO:|JUMP CUT TO:|SMASH CUT TO:|CORTE A:|FUNDIDO A:|FUNDIDO A NEGRO:|DISOLVENCIA A:)/i.test(text)) {
-    return 'TRANSITION';
-  }
-  
-  // 3. PARENTHETICAL
-  if (/^\(.+\)$/.test(text)) {
-    return 'PARENTHETICAL';
-  }
-  
-  // 4. DIALOGUE (después de CHARACTER o PARENTHETICAL)
-  if (previousType === 'CHARACTER' || previousType === 'PARENTHETICAL') {
-    if (!/^\(.+\)$/.test(text) && !(text === text.toUpperCase() && text.length >= 2 && text.length <= 35)) {
-      return 'DIALOGUE';
-    }
-  }
-  
-  // 5. CHARACTER (todo en mayúsculas, longitud razonable)
-  if (text === text.toUpperCase() && 
-      text.length >= 2 && 
-      text.length <= 35 && 
-      /^[A-Z][A-Z\s\.\'\-]+(\s*\([A-Z\.\']+\))?$/.test(text)) {
-    return 'CHARACTER';
-  }
-  
-  // 6. SHOT
-  if (/^(CLOSE ON|CLOSE UP|CLOSEUP|WIDE SHOT|ANGLE ON|POV|INSERT|MONTAGE|SERIES OF SHOTS)/i.test(text)) {
-    return 'SHOT';
-  }
-  
-  // 7. ACTION (default)
-  return 'ACTION';
 }
 
 // ============================================================================
@@ -599,53 +540,6 @@ function extractCharacters() {
   } catch (error) {
     console.error('Error en extractCharacters:', error);
     return [];
-  }
-}
-
-/**
- * Cuenta diálogos por personaje.
- * 
- * @return {Object} Objeto con personajes como claves y conteos como valores
- */
-function countDialoguesByCharacter() {
-  try {
-    var doc = DocumentApp.getActiveDocument();
-    var body = doc.getBody();
-    var numChildren = body.getNumChildren();
-    var dialogueCounts = {};
-    var currentCharacter = null;
-    
-    for (var i = 0; i < numChildren; i++) {
-      var child = body.getChild(i);
-      
-      if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
-      
-      var paragraph = child.asParagraph();
-      var indent = paragraph.getIndentStart();
-      
-      // Personaje (144pt)
-      if (Math.abs(indent - 144) <= 2) {
-        var text = paragraph.getText().trim();
-        currentCharacter = text.replace(/\s*\([^)]*\).*$/, '').trim();
-        
-        if (!dialogueCounts[currentCharacter]) {
-          dialogueCounts[currentCharacter] = 0;
-        }
-      }
-      // Diálogo (108pt)
-      else if (Math.abs(indent - 108) <= 2 && currentCharacter) {
-        dialogueCounts[currentCharacter]++;
-      }
-      // Reset si encontramos escena
-      else if (isSceneHeading(paragraph)) {
-        currentCharacter = null;
-      }
-    }
-    
-    return dialogueCounts;
-  } catch (error) {
-    console.error('Error en countDialoguesByCharacter:', error);
-    return {};
   }
 }
 
@@ -760,71 +654,45 @@ function insertSceneTemplateAtCursor() {
 }
 
 // ============================================================================
-// ESTADÍSTICAS
+// HELPERS INTERNOS
 // ============================================================================
 
 /**
- * Calcula estadísticas del guión.
- * 
- * @return {Object} Objeto con estadísticas
+ * Crea una línea de diálogo vacía después de un párrafo de personaje,
+ * a menos que la siguiente línea ya sea diálogo o parentético.
+ *
+ * @param {Document} doc - Documento activo
+ * @param {Paragraph} charParagraph - Párrafo del personaje
  */
-function calculateScriptStats() {
-  try {
-    var doc = DocumentApp.getActiveDocument();
-    var body = doc.getBody();
-    var numChildren = body.getNumChildren();
-    
-    var stats = {
-      scenes: 0,
-      characters: new Set(),
-      dialogueBlocks: 0,
-      dialogueWords: 0,
-      actionWords: 0,
-      transitions: 0
-    };
-    
-    for (var i = 0; i < numChildren; i++) {
-      var child = body.getChild(i);
-      
-      if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
-      
-      var paragraph = child.asParagraph();
-      var type = detectBlockType(paragraph);
-      var text = paragraph.getText().trim();
-      
-      switch (type) {
-        case 'ESCENA':
-          stats.scenes++;
-          break;
-        case 'PERSONAJE':
-          var cleanName = text.replace(/\s*\([^)]*\).*$/, '').trim();
-          if (cleanName) stats.characters.add(cleanName);
-          break;
-        case 'DIALOGO':
-          stats.dialogueBlocks++;
-          stats.dialogueWords += text.split(/\s+/).length;
-          break;
-        case 'ACCION':
-          stats.actionWords += text.split(/\s+/).length;
-          break;
-        case 'TRANSICION':
-          stats.transitions++;
-          break;
+function createDialogueLineAfter(doc, charParagraph) {
+  var body       = doc.getBody();
+  var childIndex = body.getChildIndex(charParagraph);
+  var nextIndex  = childIndex + 1;
+
+  // Si el siguiente ya es diálogo (108pt) o parentético (126pt), solo mover cursor
+  if (nextIndex < body.getNumChildren()) {
+    var nextChild = body.getChild(nextIndex);
+    if (nextChild.getType() === DocumentApp.ElementType.PARAGRAPH) {
+      var nextIndent = nextChild.asParagraph().getIndentStart();
+      if (Math.abs(nextIndent - 108) <= 2 || Math.abs(nextIndent - 126) <= 2) {
+        doc.setCursor(doc.newPosition(nextChild.asParagraph(), 0));
+        return;
       }
     }
-    
-    return stats;
-  } catch (error) {
-    console.error('Error en calculateScriptStats:', error);
-    return {
-      scenes: 0,
-      characters: new Set(),
-      dialogueBlocks: 0,
-      dialogueWords: 0,
-      actionWords: 0,
-      transitions: 0
-    };
   }
+
+  var config  = FORMAT_CONFIG.DIALOGUE;
+  var newPara = body.insertParagraph(childIndex + 1, '');
+  newPara.setIndentStart(Number(config.indentStart));
+  newPara.setIndentEnd(Number(config.indentEnd));
+  newPara.setIndentFirstLine(Number(config.indentStart));
+  newPara.setSpacingBefore(Number(config.spaceBefore));
+  newPara.setSpacingAfter(Number(config.spaceAfter));
+  var te = newPara.editAsText();
+  te.setFontFamily(FONT.family);
+  te.setFontSize(FONT.size);
+  te.setBold(false);
+  doc.setCursor(doc.newPosition(newPara, 0));
 }
 
 // ============================================================================

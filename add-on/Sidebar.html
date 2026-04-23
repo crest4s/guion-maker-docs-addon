@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <title>Guion Pro</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #202124;
+      background: #f8f9fa;
+    }
+
+    .container { padding: 16px; }
+
+    .header {
+      text-align: center;
+      padding: 20px 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(102,126,234,0.4);
+    }
+    .header h1 { font-size: 24px; color: #fff; font-weight: 700; }
+    .subtitle   { font-size: 12px; color: rgba(255,255,255,0.9); }
+
+    .section {
+      margin-bottom: 16px;
+      padding: 14px;
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid #e8eaed;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .section h2 {
+      font-size: 11px;
+      font-weight: 700;
+      color: #5f6368;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #1a73e8;
+      margin-bottom: 12px;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-bottom: 8px;
+      text-align: center;
+      box-shadow: 0 1px 2px rgba(60,64,67,0.3);
+    }
+    .btn:last-child { margin-bottom: 0; }
+    .btn:hover  { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(60,64,67,0.2); }
+    .btn:active { transform: translateY(0); }
+
+    .btn-blue   { background: #1a73e8; color: #fff; }
+    .btn-blue:hover { background: #1765cc; }
+    .btn-gray   { background: #5f6368; color: #fff; }
+    .btn-gray:hover { background: #4d5156; }
+    .btn-green  { background: #34a853; color: #fff; }
+    .btn-green:hover { background: #2d8e47; }
+    .btn-red    { background: #ea4335; color: #fff; }
+    .btn-red:hover { background: #d33426; }
+    .btn-yellow { background: #fbbc04; color: #202124; font-weight: 600; }
+    .btn-yellow:hover { background: #f9ab00; }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .grid-2 .btn { margin-bottom: 0; }
+
+    .footer {
+      margin-top: 16px;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 8px;
+      text-align: center;
+      color: #fff;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <header class="header">
+      <h1>Guion Pro</h1>
+      <p class="subtitle">Sistema Profesional de Guiones</p>
+    </header>
+
+    <!-- FORMATO -->
+    <section class="section">
+      <h2>Formato</h2>
+      <div class="grid-2">
+        <button class="btn btn-blue"  onclick="call('applySceneHeading')">Escena</button>
+        <button class="btn btn-gray"  onclick="call('applyAction')">Accion</button>
+        <button class="btn btn-blue"  onclick="call('applyCharacter')">Personaje</button>
+        <button class="btn btn-gray"  onclick="call('applyDialogue')">Dialogo</button>
+        <button class="btn btn-green" onclick="call('applyParenthetical')">Parentetico</button>
+        <button class="btn btn-green" onclick="call('applyTransition')">Transicion</button>
+        <button class="btn btn-red"   onclick="call('applyActBreak')">Act Break</button>
+        <button class="btn btn-red"   onclick="call('applyShot')">Plano</button>
+      </div>
+    </section>
+
+    <!-- HERRAMIENTAS -->
+    <section class="section">
+      <h2>Herramientas</h2>
+      <button class="btn btn-yellow" onclick="call('renumberScenes')">Renumerar escenas</button>
+    </section>
+
+    <!-- PLANTILLAS -->
+    <section class="section">
+      <h2>Plantillas</h2>
+      <button class="btn btn-gray" onclick="call('insertTitlePage')">Insertar portada</button>
+      <button class="btn btn-gray" onclick="call('insertSceneTemplate')">Insertar escena estandar</button>
+    </section>
+
+    <!-- PERSONAJES -->
+    <section class="section">
+      <h2>Personajes</h2>
+      <button class="btn btn-gray" onclick="call('showCharacterList')">Lista de personajes</button>
+      <button class="btn btn-gray" onclick="call('searchCharacter')">Buscar personaje</button>
+    </section>
+
+    <footer class="footer">
+      <p>Guion Pro v3.0 — Add-on</p>
+    </footer>
+
+  </div>
+
+  <script>
+    function call(fnName) {
+      google.script.run
+        .withSuccessHandler(function() {})
+        .withFailureHandler(function(err) { alert('Error: ' + err.message); })
+        [fnName]();
+    }
+  </script>
+</body>
+</html>
