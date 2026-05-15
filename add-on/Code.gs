@@ -23,8 +23,6 @@ function onInstall(e) {
   try { onOpen(e); } catch (error) { console.error('Error en onInstall:', error); }
 }
 
-function onHomepage(e) { return null; }
-
 function onFileScopeGranted(e) {
   try { onOpen(e); } catch (error) { console.error('Error en onFileScopeGranted:', error); }
 }
