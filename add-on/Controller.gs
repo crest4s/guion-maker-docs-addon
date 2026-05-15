@@ -245,7 +245,7 @@ function controllerApplyDialogue() {
 function controllerOpenSidebar() {
   try {
     var html = HtmlService.createHtmlOutputFromFile('Sidebar')
-      .setTitle('Guion Pro')
+      .setTitle('Guion Maker')
       .setWidth(300);
     DocumentApp.getUi().showSidebar(html);
   } catch (error) {
@@ -363,27 +363,6 @@ function controllerInsertSceneTemplate() {
     console.error('Error en controllerInsertSceneTemplate:', error);
     showError('Error al insertar escena: ' + error.message);
   }
-}
-
-// ============================================================================
-// CONTROLADOR DE AYUDA
-// ============================================================================
-
-/**
- * Muestra información de ayuda del Add-on.
- */
-function controllerShowHelp() {
-  var message = '🎬 GUION MAKER - AYUDA\n\n';
-  message += 'FORMATOS DISPONIBLES:\n';
-  message += '• Encabezado de Escena: INT./EXT. LOCALIZACIÓN - MOMENTO\n';
-  message += '• Acción: Descripción de acciones\n';
-  message += '• Personaje: Nombre en mayúsculas\n';
-  message += '• Diálogo: Texto del personaje\n';
-  message += '• Parentético: (indicaciones entre diálogos)\n';
-  message += '• Transición: CUT TO:, FADE TO:, etc.\n\n';
-  message += 'Usa los formatos del menú para componer tu guion.';
-  
-  showInfo(message);
 }
 
 // ============================================================================
