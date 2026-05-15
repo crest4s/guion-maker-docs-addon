@@ -1,28 +1,21 @@
 {
   "timeZone": "Europe/Madrid",
   "oauthScopes": [
-    "https://www.googleapis.com/auth/documents.currentonly"
+    "https://www.googleapis.com/auth/documents.currentonly",
+    "https://www.googleapis.com/auth/script.container.ui"
   ],
-  "dependencies": {},
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8",
   "addOns": {
     "common": {
       "name": "Guion Maker",
-      "logoUrl": "https://ssl.gstatic.com/docs/templates/thumbnails/docs-blank-googlecolors.png",
+      "logoUrl": "REEMPLAZAR_CON_URL_LOGO_128x128",
       "layoutProperties": {
         "primaryColor": "#4285f4",
         "secondaryColor": "#34a853"
-      },
-      "homepageTrigger": {
-        "runFunction": "onHomepage"
-      },
-      "universalActions": []
+      }
     },
     "docs": {
-      "homepageTrigger": {
-        "runFunction": "onHomepage"
-      },
       "onFileScopeGrantedTrigger": {
         "runFunction": "onFileScopeGranted"
       }
