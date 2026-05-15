@@ -1,56 +1,67 @@
-# Guion Maker — Google Docs Screenplay Formatter
+# Guion Maker — Screenplay Formatter for Google Docs
 
-Tools for formatting professional screenplays in Google Docs, following industry-standard conventions.
+Herramientas para formatear guiones cinematográficos profesionales en Google Docs, siguiendo las convenciones estándar de la industria.
 
 ---
 
-## Structure
+## Estructura
 
 ```
 guion-docs-apps-scripts/
-├── apps-script/    ← Linked script (current production version)
-└── add-on/         ← Google Workspace Marketplace add-on (WIP)
+├── add-on/         ← Google Workspace Marketplace Add-on (v3.0)
+├── apps-script/    ← Script vinculado a documento (v2.1)
+└── docs/
+    ├── add-on/     ← README, guía de uso, deployment, requisitos
+    ├── apps-script/← README, guía de uso
+    ├── presentacion-addon.md
+    └── presentacion-script.md
 ```
 
-### `apps-script/` — Linked Script
+---
 
-A Google Apps Script linked directly to a Google Doc. This is the active, production-ready version.
+## `add-on/` — Google Workspace Add-on (v3.0)
 
-**Files:**
-- `Code.gs` — Entry point: `onOpen` trigger, menu creation, keyboard shortcut handlers
-- `Formatting.gs` — Core formatting logic for screenplay elements (scene headings, action, dialogue, etc.)
-- `FountainParser.gs` — Parser for Fountain plain-text screenplay format
-- `Navigation.gs` — Scene navigation and document structure utilities
-- `Utilities.gs` — Shared helpers (text manipulation, UI alerts, etc.)
-- `Autocomplete.gs` — Character name autocomplete from document history
-- `Sidebar.html` — Sidebar UI panel (loaded via `HtmlService`)
+Add-on publicable en Google Workspace Marketplace. Se instala una vez y queda disponible en todos los Google Docs del usuario o dominio institucional.
 
-**How to use:** Open the linked Google Doc. The "Guion Maker" menu appears automatically on `onOpen`. Use `Ctrl+Alt+1–6` for quick formatting shortcuts.
+| Archivo | Responsabilidad |
+|---------|----------------|
+| `appsscript.json` | Manifest: scopes OAuth, triggers, metadatos |
+| `Code.gs` | Triggers (`onOpen`, `onInstall`, `onFileScopeGranted`), menú, bridges a Controller |
+| `Controller.gs` | Coordinación de UI (alertas, prompts, sidebar) y manejo de errores |
+| `Logic.gs` | Lógica pura de formateo y manipulación de párrafos |
+| `Sidebar.html` | Panel lateral con acceso rápido a todas las funciones |
+
+**Documentación:** [`docs/add-on/`](docs/add-on/)
 
 ---
 
-### `add-on/` — Marketplace Add-on (WIP)
+## `apps-script/` — Script vinculado (v2.1)
 
-A standalone Apps Script structured as a Google Workspace Marketplace add-on. Not yet published.
+Script que se instala directamente en un Google Doc concreto. Incluye funcionalidades adicionales como Fountain import/export y estadísticas.
 
-**Files:**
-- `appsscript.json` — Manifest with OAuth scopes, add-on triggers, and runtime config
-- `Code.gs` — Lifecycle triggers (`onOpen`, `onInstall`, `onHomepage`) and menu bridge
-- `Controller.gs` — Orchestration layer: connects menu actions to business logic
-- `Logic.gs` — Core screenplay formatting logic (equivalent to `apps-script/Formatting.gs`)
-- `Tests.gs` — Manual test suite for development
+| Archivo | Responsabilidad |
+|---------|----------------|
+| `Code.gs` | Triggers, menú, configuración, plantillas, personajes |
+| `Formatting.gs` | Aplicación interactiva de formatos + `TRANSITION_MAP` |
+| `FountainParser.gs` | Parser completo del formato Fountain |
+| `Utilities.gs` | Helpers, detección de tipos, `aplicarEstiloAParrafo` |
+| `Sidebar.html` | Panel lateral |
 
-**How to use:** Deploy via [clasp](https://github.com/google/clasp) or copy files into the Apps Script editor linked to the target document.
+**Documentación:** [`docs/apps-script/`](docs/apps-script/)
 
 ---
 
-## Screenplay Format Reference
+## Referencia rápida de formatos
 
-| Element | Shortcut |
-|---|---|
-| Scene Heading | `Ctrl+Alt+1` |
-| Action | `Ctrl+Alt+2` |
-| Character | `Ctrl+Alt+3` |
-| Dialogue | `Ctrl+Alt+4` |
-| Parenthetical | `Ctrl+Alt+5` |
-| Transition | `Ctrl+Alt+6` |
+| Elemento | Sangría inicio | Sangría fin | Atajo |
+|----------|---------------|-------------|-------|
+| Scene Heading | 0 pt | 0 pt | Ctrl+Alt+1 |
+| Action | 0 pt | 0 pt | Ctrl+Alt+2 |
+| Character | 144 pt | 0 pt | Ctrl+Alt+3 |
+| Dialogue | 108 pt | 72 pt | Ctrl+Alt+4 |
+| Parenthetical | 126 pt | 90 pt | Ctrl+Alt+5 |
+| Transition | 376 pt | 0 pt | Ctrl+Alt+6 |
+| Act Break | 0 pt (centrado) | — | — |
+| Shot | 0 pt | — | — |
+
+Fuente: **Courier New 12pt**. Página: **A4**. Márgenes: 72pt/72pt/108pt/72pt (T/B/L/R).
