@@ -12,9 +12,7 @@ guion-docs-apps-scripts/
 ├── apps-script/    ← Script vinculado a documento (v2.1)
 └── docs/
     ├── add-on/     ← README, guía de uso, deployment, requisitos
-    ├── apps-script/← README, guía de uso
-    ├── presentacion-addon.md
-    └── presentacion-script.md
+    └── apps-script/← README, guía de uso
 ```
 
 ---
