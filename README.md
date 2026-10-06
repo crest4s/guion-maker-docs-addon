@@ -63,3 +63,9 @@ Script que se instala directamente en un Google Doc concreto. Incluye funcionali
 | Shot | 0 pt | — | — |
 
 Fuente: **Courier New 12pt**. Página: **A4**. Márgenes: 72pt/72pt/108pt/72pt (T/B/L/R).
+
+---
+
+## Licencia
+
+[MIT](LICENSE)
