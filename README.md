@@ -7,7 +7,7 @@ Herramientas para formatear guiones cinematográficos profesionales en Google Do
 ## Estructura
 
 ```
-guion-docs-apps-scripts/
+guion-maker-docs-addon/
 ├── add-on/         ← Google Workspace Marketplace Add-on (v3.0)
 ├── apps-script/    ← Script vinculado a documento (v2.1)
 └── docs/
